@@ -7,22 +7,43 @@ function rand(){
     return Math.floor(Math.random() * 101)
 }
 
-wallets = {
-    "Bob": rand(),
-    "Alice": rand(),
-    "Natalia": rand(),
-    "Marina": rand(),
-    "Leandro": rand(),
-    "Edgar": rand(),
-    "David": rand(),
-    "Daniel": rand(),
-    "Daniela": rand(),
-    "Nicolás": rand(),
-    "Felipe": rand(),
-    "Juan": rand(),
-    "Diana": rand(),
-    "Gabriel": rand()
-};
+// numeric value says the index of the block of the last transaction where the wallet were modified
+// if null, it means that the wallet have not been modified
+// and therefore the wallet does not have ZORACOINS
+walletsState = {
+    "MATRIX": {
+        "balance": 21000000,
+        "indexLastMod": null
+    },
+    "Bob": {
+        "balance": 0,
+        "indexLastMod": null
+    },
+    "Alice": {
+        "balance": 0,
+        "indexLastMod": null
+    },
+    "Natalia": {
+        "balance": 0,
+        "indexLastMod": null
+    },
+    "Marina": {
+        "balance": 0,
+        "indexLastMod": null
+    },
+    "Leandro": {
+        "balance": 0,
+        "indexLastMod": null
+    },
+    "Gabriel": {
+        "balance": 0,
+        "indexLastMod": null
+    },
+    "Philip": {
+        "balance": 0,
+        "indexLastMod": null
+    }
+}
 
 // Taken from https://stackoverflow.com/questions/59777670/how-can-i-hash-a-string-with-sha256-in-js
 function sha256(ascii) {
@@ -122,70 +143,6 @@ function sha256(ascii) {
     return result;
 };
 
-// Transfers ZORACOINS from wallet of the person A to wallet of the person B
-function transfer(fromWallet, toWallet, ammount){
-    var ammountInt = 0;
-    // initial validations
-    if(typeof ammount == "number" && wallets[fromWallet] && wallets[toWallet]){
-        ammountInt = parseInt(ammount);
-    } else {
-        return "Error en la transacción";
-    }
-    if(wallets[fromWallet] > ammountInt && ammountInt > 0){
-        wallets[fromWallet] = wallets[fromWallet] - ammountInt;
-        wallets[toWallet] = wallets[toWallet] + ammountInt;
-        let newTransaction = {
-            "origin_wallet_updated": wallets[fromWallet],
-            "destination_wallet_updated": wallets[toWallet],
-            "description": `${fromWallet} ha transferido ${ammount} ZORACOINS a ${toWallet}`
-        }
-        transactionQueue.push(newTransaction);
-        return "Transferencia exitosa";
-    } else {
-        return "Error en la transacción";
-    }
-}
-
-// Takes the first two transactions from the transactionQueue and make a block with a default nonce and two transactions
-function prebuildBlock(){
-    if(transactionQueue.length > 1){
-        let blockTransactions = [];
-        let transactionsHashes = [];
-        blockTransactions.push(transactionQueue.shift());
-        blockTransactions.push(transactionQueue.shift());
-        for(let k = 0; k<blockTransactions.length; k++){
-            let elem = JSON.stringify(blockTransactions[i]);
-            hash(elem).then((hex) => transactionsHashes.push(hex));
-        }
-        let combinedHash = transactionsHashes.shift();
-        combinedHash += transactionsHashes.shift();
-        let rootHash = "";
-        hash(combinedHash).then((hex) => rootHash = hex);
-        if(blockChain.length < 1){
-            let newBlock = {
-                "header": {
-                    "blockIndex": blockChain.length,
-                    "prevHash": "random",
-                    "rootHash": rootHash,
-                    "nonce": 0
-                },
-                "blockTransactions": blockTransactions
-            };
-            blockChain.push(newBlock);
-        } else {
-            let lastBlock = blockChain[blockChain.length-1];
-            let newBlock = {
-                "header": {
-                    "prevHash": lastBlock[""],
-                    "rootHash": rootHash,
-                    "nonce": 0
-                },
-                "blockTransactions": blockTransactions
-            }
-        }
-    }
-}
-
 // Make a Merkle Tree with all the transactions of the passed array of transactions
 function merkleTree(transactionsArr){
     if(transactionsArr && transactionsArr.length > 0){
@@ -233,4 +190,109 @@ function merkleTree(transactionsArr){
     }
 }
 
-function proofOfWork(){}
+function transactionValidation(fromWallet, ammount){
+    if(typeof walletsState[fromWallet] == "undefined" || walletsState[fromWallet] == null || typeof ammount != "number"){
+        return false; // if false, 
+    } else {
+        let blockTransactions = blockChain[walletsState[fromWallet]].blockTransactions;
+        let lastTrans = 0;
+        let flagPosition = false;
+        for(let k = 0; k < blockTransactions.length; k++){
+            let aux = blockTransactions[k].split(' ');
+            if(aux[0] == fromWallet){
+                lastTrans = k;
+            }  || aux[aux.length-1] == fromWallet) 
+        }
+        if(lastTrans < 1){
+            console.log('EXPIRED WALLETS');
+            return false;
+        } else {
+            if(blockTransactions[lastTrans].split(' '))
+        }
+    }
+}
+
+// Transfers ZORACOINS from wallet of the person A to wallet of the person B
+function transferFromMatrix(toWallet){
+    walletsState[toWallet]["balance"] += 25;
+    walletsState["MATRIX"]["balance"] -= 25;
+    let matrixTransaction = {
+        "origin_wallet_updated": walletsState["MATRIX"]["balance"],
+        "destination_wallet_updated": walletsState[toWallet]["balance"],
+        "description": `MATRIX ha transferido 25 ZORACOINS a ${toWallet}`
+    }
+    return matrixTransaction;
+}
+
+// Transfers ZORACOINS from wallet of the person A to wallet of the person B
+function transfer(fromWallet, toWallet, ammount){
+    var ammountInt = 0;
+    // initial validations
+    if(typeof ammount == "number" && wallets[fromWallet] && wallets[toWallet]){
+        ammountInt = parseInt(ammount);
+    } else {
+        return "Error en la transacción";
+    }
+    if(wallets[fromWallet] > ammountInt && ammountInt > 0){
+        wallets[fromWallet] = wallets[fromWallet] - ammountInt;
+        wallets[toWallet] = wallets[toWallet] + ammountInt;
+        let newTransaction = {
+            "origin_wallet_updated": wallets[fromWallet],
+            "destination_wallet_updated": wallets[toWallet],
+            "description": `${fromWallet} ha transferido ${ammount} ZORACOINS a ${toWallet}`
+        }
+        transactionQueue.push(newTransaction);
+        return "Transferencia exitosa";
+    } else {
+        return "Error en la transacción";
+    }
+}
+
+// Takes the first n transactions (max 10, min 0) from the transactionQueue and make a block
+function mineBlock(miner){
+    let blockTransactions = [];
+    let k = 0;
+    while(transactionQueue[0] && k<10){
+        blockTransactions.push(transactionQueue.shift());
+        k++;
+    }
+    if(walletsState[miner]){
+        let transac = transferFromMatrix(miner);
+        blockTransactions.unshift(transac);
+    }
+    if(blockChain.length < 1){
+        let newBlock = {
+            "header": {
+                "blockIndex": 0,
+                "prevHash": "GENESIS",
+                "rootHash": merkleTree(blockTransactions),
+                "nonce": 0
+            },
+            "blockTransactions": blockTransactions
+        };
+        proofOfWork(newBlock);
+    } else {
+        let newBlock = {
+            "header": {
+                "blockIndex": blockChain.length,
+                "prevHash": chainHashes[length-1],
+                "rootHash": merkleTree(blockTransactions),
+                "nonce": 0
+            },
+            "blockTransactions": blockTransactions
+        };
+        proofOfWork(newBlock);
+    }
+}
+
+function proofOfWork(block){
+    let nonceIndex = 0;
+    let hash = '';
+    do {
+        block.header.nonce = nonceIndex;
+        hash = sha256(JSON.stringify(block));
+        nonceIndex++;
+    } while(hash.indexOf('00') === -1);
+    blockChain.push(block);
+    chainHashes.push(hash);
+}
