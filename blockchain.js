@@ -183,33 +183,14 @@ function merkleTree(transactionsArr){
 function searchWalletBalance(walletToSearch){
     let indexWalletMod = walletsState[walletToSearch].indexLastMod;
     if(indexWalletMod != null){
-        let blockTransactions = blockChain[indexWalletMod].blockTransactions;
-        let lastTransac = null;
-        let flagPosition = false; // if false, searched wallet is who transfers; if true, searched wallet is who receives
-        let k = 0;
-        while(k < blockTransactions.length){
-            let aux = blockTransactions[k]["description"].split(' ');
-            if(aux[0] == walletToSearch){
-                lastTransac = k;
-                flagPosition = false;
-            } else if(aux[aux.length-1] == walletToSearch){
-                lastTransac = k;
-                flagPosition = true;
-            }
-            k++;
+        let aux = totalTransactions[indexWalletMod]["description"].split(' ');
+        let walletBalance = 0;
+        if(aux[0] == walletToSearch){
+            walletBalance = totalTransactions[indexWalletMod]["origin_wallet_updated"];
+        } else if(aux[aux.length-1] == walletToSearch){
+            walletBalance = totalTransactions[indexWalletMod]["destination_wallet_updated"];
         }
-        if(lastTransac == null){
-            console.log('INCONSISTENT WALLETSTATE');
-            return null;
-        } else {
-            let walletBalance = 0;
-            if(flagPosition){
-                walletBalance = blockTransactions[lastTransac]["destination_wallet_updated"];
-            } else {
-                walletBalance = blockTransactions[lastTransac]["origin_wallet_updated"];
-            }
-            return walletBalance;
-        }
+        return walletBalance;
     } else return 0; // if indexLastMod is null this means the transaction have not taken part of any transaction yet
     // and therefore the balance is 0
 }
@@ -239,6 +220,8 @@ function transferFromMatrix(toWallet){
             "destination_wallet_updated": balance + 25,
             "description": `MATRIX ha transferido 25 ZORACOINS a ${toWallet}`
         }
+        totalTransactions.push(matrixTransaction);
+        walletsState[toWallet].indexLastMod = totalTransactions.length -1;
         return matrixTransaction;
     }
     return null;
@@ -261,9 +244,12 @@ function transfer(fromWallet, toWallet, ammount){
             "description": `${fromWallet} ha transferido ${ammount} ZORACOINS a ${toWallet}`
         }
         transactionQueue.push(newTransaction);
-        return "Transferencia exitosa";
+        totalTransactions.push(newTransaction);
+        walletsState[fromWallet].indexLastMod = totalTransactions.length -1;
+        walletsState[toWallet].indexLastMod = totalTransactions.length -1;
+        console.log("Transferencia exitosa");
     }
-    else return "Transacción inválida";
+    else console.log("Transacción inválida");
 }
 
 // Takes the first n transactions (max 10, min 0) from the transactionQueue and make a block
@@ -279,13 +265,6 @@ function mineBlock(miner){
         let transac = transferFromMatrix(miner);
         blockTransactions.unshift(transac);
     }
-    blockTransactions.forEach(item => {
-        let aux = item.description.split(' ');
-        let walletUpdated = aux[0];
-        if(walletUpdated != 'MATRIX') walletsState[walletUpdated].indexLastMod = blockIndex;
-        walletUpdated = aux[aux.length-1];
-        if(walletUpdated != 'MATRIX') walletsState[walletUpdated].indexLastMod = blockIndex;
-    });
     if(blockIndex == 0){
         let newBlock = {
             "header": {
