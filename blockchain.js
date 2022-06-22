@@ -1,46 +1,36 @@
+const totalTransactions = []; // auxiliar for the system
 const transactionQueue = [];
 const blockChain = [];
-const chainHashes = [];
+const chainHashes = []; // auxiliar for the system
 
-// Returns a random integer from 0 to 100
-function rand(){
-    return Math.floor(Math.random() * 101)
+// at the beginning of blockchain there were no wallets with bitcoins and there were 21000000 bitcoins available to mine
+matrix = {
+    "remainingCoins": 21000000
 }
 
 // numeric value says the index of the block of the last transaction where the wallet were modified
 // if null, it means that the wallet have not been modified
 // and therefore the wallet does not have ZORACOINS
 walletsState = {
-    "MATRIX": {
-        "balance": 21000000,
-        "indexLastMod": null
-    },
     "Bob": {
-        "balance": 0,
         "indexLastMod": null
     },
     "Alice": {
-        "balance": 0,
         "indexLastMod": null
     },
     "Natalia": {
-        "balance": 0,
         "indexLastMod": null
     },
     "Marina": {
-        "balance": 0,
         "indexLastMod": null
     },
     "Leandro": {
-        "balance": 0,
         "indexLastMod": null
     },
     "Gabriel": {
-        "balance": 0,
         "indexLastMod": null
     },
     "Philip": {
-        "balance": 0,
         "indexLastMod": null
     }
 }
@@ -190,68 +180,97 @@ function merkleTree(transactionsArr){
     }
 }
 
-function transactionValidation(fromWallet, ammount){
-    if(typeof walletsState[fromWallet] == "undefined" || walletsState[fromWallet] == null || typeof ammount != "number"){
-        return false; // if false, 
-    } else {
-        let blockTransactions = blockChain[walletsState[fromWallet]].blockTransactions;
-        let lastTrans = 0;
-        let flagPosition = false;
-        for(let k = 0; k < blockTransactions.length; k++){
-            let aux = blockTransactions[k].split(' ');
-            if(aux[0] == fromWallet){
-                lastTrans = k;
-            }  || aux[aux.length-1] == fromWallet) 
+function searchWalletBalance(walletToSearch){
+    let indexWalletMod = walletsState[walletToSearch].indexLastMod;
+    if(indexWalletMod != null){
+        let blockTransactions = blockChain[indexWalletMod].blockTransactions;
+        let lastTransac = null;
+        let flagPosition = false; // if false, searched wallet is who transfers; if true, searched wallet is who receives
+        let k = 0;
+        while(k < blockTransactions.length){
+            let aux = blockTransactions[k]["description"].split(' ');
+            if(aux[0] == walletToSearch){
+                lastTransac = k;
+                flagPosition = false;
+            } else if(aux[aux.length-1] == walletToSearch){
+                lastTransac = k;
+                flagPosition = true;
+            }
+            k++;
         }
-        if(lastTrans < 1){
-            console.log('EXPIRED WALLETS');
-            return false;
+        if(lastTransac == null){
+            console.log('INCONSISTENT WALLETSTATE');
+            return null;
         } else {
-            if(blockTransactions[lastTrans].split(' '))
+            let walletBalance = 0;
+            if(flagPosition){
+                walletBalance = blockTransactions[lastTransac]["destination_wallet_updated"];
+            } else {
+                walletBalance = blockTransactions[lastTransac]["origin_wallet_updated"];
+            }
+            return walletBalance;
         }
+    } else return 0; // if indexLastMod is null this means the transaction have not taken part of any transaction yet
+    // and therefore the balance is 0
+}
+
+// returns null if transaction is invalid; returns an array of two numbers if transaction is valid: 
+// first number equals to updated balance of fromWallet after transaction, second number equals to updated balance of toWallet after transaction
+function transactionValidation(currentFromWallet, currentToWallet, ammount){
+    let arrToReturn = [];
+    let firstBalance = searchWalletBalance(currentFromWallet);
+    if(firstBalance == null || firstBalance < ammount){
+        return null;
     }
+    arrToReturn.push(firstBalance - ammount);
+    let secondBalance = searchWalletBalance(currentToWallet);
+    if(secondBalance == null) return null;
+    arrToReturn.push(secondBalance + ammount);
+    return arrToReturn;
 }
 
 // Transfers ZORACOINS from wallet of the person A to wallet of the person B
 function transferFromMatrix(toWallet){
-    walletsState[toWallet]["balance"] += 25;
-    walletsState["MATRIX"]["balance"] -= 25;
-    let matrixTransaction = {
-        "origin_wallet_updated": walletsState["MATRIX"]["balance"],
-        "destination_wallet_updated": walletsState[toWallet]["balance"],
-        "description": `MATRIX ha transferido 25 ZORACOINS a ${toWallet}`
+    let balance = searchWalletBalance(toWallet);
+    if(balance != null){
+        matrix.remainingCoins -= 25;
+        let matrixTransaction = {
+            "origin_wallet_updated": matrix.remainingCoins,
+            "destination_wallet_updated": balance + 25,
+            "description": `MATRIX ha transferido 25 ZORACOINS a ${toWallet}`
+        }
+        return matrixTransaction;
     }
-    return matrixTransaction;
+    return null;
 }
 
 // Transfers ZORACOINS from wallet of the person A to wallet of the person B
 function transfer(fromWallet, toWallet, ammount){
     var ammountInt = 0;
     // initial validations
-    if(typeof ammount == "number" && wallets[fromWallet] && wallets[toWallet]){
+    if(typeof ammount == "number" && walletsState[fromWallet] && walletsState[toWallet]){
         ammountInt = parseInt(ammount);
     } else {
-        return "Error en la transacción";
+        return "Transacción inválida";
     }
-    if(wallets[fromWallet] > ammountInt && ammountInt > 0){
-        wallets[fromWallet] = wallets[fromWallet] - ammountInt;
-        wallets[toWallet] = wallets[toWallet] + ammountInt;
+    let newBalance = transactionValidation(fromWallet, toWallet, ammountInt);
+    if(newBalance != null){
         let newTransaction = {
-            "origin_wallet_updated": wallets[fromWallet],
-            "destination_wallet_updated": wallets[toWallet],
+            "origin_wallet_updated": newBalance[0],
+            "destination_wallet_updated": newBalance[1],
             "description": `${fromWallet} ha transferido ${ammount} ZORACOINS a ${toWallet}`
         }
         transactionQueue.push(newTransaction);
         return "Transferencia exitosa";
-    } else {
-        return "Error en la transacción";
     }
+    else return "Transacción inválida";
 }
 
 // Takes the first n transactions (max 10, min 0) from the transactionQueue and make a block
 function mineBlock(miner){
     let blockTransactions = [];
     let k = 0;
+    let blockIndex = blockChain.length;
     while(transactionQueue[0] && k<10){
         blockTransactions.push(transactionQueue.shift());
         k++;
@@ -260,7 +279,14 @@ function mineBlock(miner){
         let transac = transferFromMatrix(miner);
         blockTransactions.unshift(transac);
     }
-    if(blockChain.length < 1){
+    blockTransactions.forEach(item => {
+        let aux = item.description.split(' ');
+        let walletUpdated = aux[0];
+        if(walletUpdated != 'MATRIX') walletsState[walletUpdated].indexLastMod = blockIndex;
+        walletUpdated = aux[aux.length-1];
+        if(walletUpdated != 'MATRIX') walletsState[walletUpdated].indexLastMod = blockIndex;
+    });
+    if(blockIndex == 0){
         let newBlock = {
             "header": {
                 "blockIndex": 0,
@@ -274,8 +300,8 @@ function mineBlock(miner){
     } else {
         let newBlock = {
             "header": {
-                "blockIndex": blockChain.length,
-                "prevHash": chainHashes[length-1],
+                "blockIndex": blockIndex,
+                "prevHash": chainHashes[chainHashes.length-1],
                 "rootHash": merkleTree(blockTransactions),
                 "nonce": 0
             },
@@ -292,7 +318,7 @@ function proofOfWork(block){
         block.header.nonce = nonceIndex;
         hash = sha256(JSON.stringify(block));
         nonceIndex++;
-    } while(hash.indexOf('00') === -1);
+    } while(hash.indexOf('00') < 0 || hash.indexOf('00') > 0);
     blockChain.push(block);
     chainHashes.push(hash);
 }
