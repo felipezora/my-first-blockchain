@@ -1,2 +1,2 @@
 # my-first-blockchain
-Object Oriented Application simulating Blockchain operations and behavior
+Object Oriented Application written in JavaScript simulating Bitcoin Blockchain operations and behavior
